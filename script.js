@@ -1,41 +1,61 @@
+// Use Web Crypto with rejection sampling. Never log generated values.
 const btnEl = document.querySelector(".btn");
 const inputEl = document.getElementById("input");
 const copyIconEl = document.querySelector(".fa-copy");
 const alertcontainer = document.querySelector(".alert-container");
-
-copyIconEl.addEventListener("click", (e) => {
-  copyPassword();
-  if (inputEl.value) {
-     alertcontainer.classList.add("active");
-setTimeout(() => {
-  alertcontainer.classList.remove("active");
-}, 2000);
-  }
-});
-
-btnEl.addEventListener("click", (e) => {
-  createPassword();
-});
+const PASSWORD_CHARS = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*()_[]{}";
+let feedbackTimer;
+alertcontainer.classList.remove("active");
+alertcontainer.setAttribute("role", "status");
+alertcontainer.setAttribute("aria-live", "polite");
+copyIconEl.setAttribute("role", "button");
+copyIconEl.setAttribute("tabindex", "0");
+copyIconEl.setAttribute("aria-label", "Copy generated password");
+function feedback(message) {
+  clearTimeout(feedbackTimer);
+  alertcontainer.textContent = message;
+  alertcontainer.classList.add("active");
+  feedbackTimer = setTimeout(() => alertcontainer.classList.remove("active"), 2000);
+}
 function createPassword() {
-  const chars =
-    "0123456789asdfghjklqwertyuiopzxcvbnm ~!@#$%^&*()_[]{} ASDFGHJKLQWERTYUIOPZXCVBNM";
-  const passwordLength = 14;
+  if (!globalThis.crypto || typeof crypto.getRandomValues !== "function") {
+    inputEl.value = "";
+    feedback("Secure random generation is unavailable in this browser.");
+    return;
+  }
+  const limit = 256 - (256 % PASSWORD_CHARS.length);
   let password = "";
-  for (let index = 0; index < passwordLength; index++) {
-    const randomNum = Math.floor(Math.random() * chars.length);
-    password += chars.substring(randomNum, randomNum + 1);
-    console.log(randomNum, password);
+  const bytes = new Uint8Array(32);
+  while (password.length < 14) {
+    crypto.getRandomValues(bytes);
+    for (const byte of bytes) {
+      if (byte < limit) password += PASSWORD_CHARS[byte % PASSWORD_CHARS.length];
+      if (password.length === 14) break;
+    }
   }
   inputEl.value = password;
-  alertcontainer.innerHTML = password + "copied";
+  alertcontainer.classList.remove("active");
 }
-function copyPassword() {
-  inputEl.select();
-  inputEl.setSelectionRange(0, 9999);
-
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(inputEl.value);
-  } else {
-    document.execCommand("copy");
+async function copyPassword() {
+  if (!inputEl.value) { feedback("Generate a password first."); return; }
+  try {
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+      await navigator.clipboard.writeText(inputEl.value);
+    } else {
+      inputEl.select();
+      inputEl.setSelectionRange(0, inputEl.value.length);
+      if (!document.execCommand("copy")) throw new Error("Copy failed");
+    }
+    feedback("Password copied.");
+  } catch {
+    feedback("Copy failed. Select and copy the password manually.");
   }
 }
+btnEl.addEventListener("click", createPassword);
+copyIconEl.addEventListener("click", copyPassword);
+copyIconEl.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    copyPassword();
+  }
+});
