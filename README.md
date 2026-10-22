@@ -4,6 +4,8 @@ JavaScript password-generator practice using Web Crypto, unbiased character sele
 
 Part of my JavaScript practice work. Explore my complete projects on [GitHub](https://github.com/awaljanhematyar) or my [developer portfolio](https://hematyar-professional-portfolio.vercel.app/).
 
+[Live demo](https://awaljanhematyar.github.io/random-password-generator/)
+
 ## Features
 
 - Generate a 14-character value using Web Crypto.
